@@ -370,4 +370,4 @@ make clean    # Remove binary
 
 ## 📄 License
 
-Internal tool — [Zusetech](https://zusetech.com).
+MIT
