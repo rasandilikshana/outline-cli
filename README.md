@@ -38,10 +38,25 @@
 
 ## 📦 Install
 
+Two binaries are published per release. Pick whichever fits your needs.
+
+| Binary | What you get | When to choose |
+|--------|--------------|----------------|
+| `outline` | Full CLI + TUI + MCP (`outline mcp` subcommand) | Daily interactive use, scripts, CI/CD, and optionally MCP |
+| `outline-mcp` | Standalone MCP server only (~20% smaller) | You only want to plug Outline into an MCP client like Claude Code |
+
+They coexist happily in `/usr/local/bin` — installing one does not affect the other.
+
 ### Quick Install (Linux / macOS)
 
+**Full CLI + MCP bundled:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh | sh
+```
+
+**MCP server only:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install-mcp.sh | sh
 ```
 
 > Auto-detects your OS and architecture, downloads the latest release binary, and installs to `/usr/local/bin`.
@@ -50,21 +65,26 @@ curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh 
 
 Pre-built binaries for every platform are available on the [Releases page](https://github.com/DiyRex/outline-cli/releases):
 
-| Platform | Binary |
-|----------|--------|
-| Linux (x86_64) | `outline-linux-amd64` |
-| Linux (ARM64) | `outline-linux-arm64` |
-| macOS (Intel) | `outline-darwin-amd64` |
-| macOS (Apple Silicon) | `outline-darwin-arm64` |
-| Windows (x86_64) | `outline-windows-amd64.exe` |
+| Platform | CLI Binary | MCP Binary |
+|----------|------------|------------|
+| Linux (x86_64) | `outline-linux-amd64` | `outline-mcp-linux-amd64` |
+| Linux (ARM64) | `outline-linux-arm64` | `outline-mcp-linux-arm64` |
+| macOS (Intel) | `outline-darwin-amd64` | `outline-mcp-darwin-amd64` |
+| macOS (Apple Silicon) | `outline-darwin-arm64` | `outline-mcp-darwin-arm64` |
+| Windows (x86_64) | `outline-windows-amd64.exe` | `outline-mcp-windows-amd64.exe` |
 
 ### Build from Source
 
 ```bash
 git clone https://github.com/DiyRex/outline-cli.git
 cd outline-cli
-make build    # produces ./outline binary
-make install  # copies to /usr/local/bin
+make build        # ./outline         (CLI + MCP bundled)
+make build-mcp    # ./outline-mcp     (MCP server only)
+make build-all    # both
+
+make install      # copies outline     to /usr/local/bin
+make install-mcp  # copies outline-mcp to /usr/local/bin
+make install-all  # both
 ```
 
 ---
@@ -113,27 +133,39 @@ outline
 
 Each project registers its own MCP server with its own Outline credentials — no secrets on shared disk, nothing about your team's Outline instance baked into the binary.
 
-**1. Install the binary once:**
+**1. Install once (pick one):**
 ```bash
+# MCP-only binary (recommended if you just want MCP)
+curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install-mcp.sh | sh
+
+# OR the full CLI, which also provides `outline mcp`
 curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh | sh
 ```
 
 **2. Inside your project, register the MCP server with env-injected credentials:**
+
+With the standalone binary:
 ```bash
 cd my-project
+claude mcp add outline --scope project outline-mcp \
+  --env OUTLINE_URL=https://outline.mycompany.com \
+  --env OUTLINE_API_KEY=ol_api_your_key
+```
+
+Or with the full CLI:
+```bash
 claude mcp add outline --scope project outline mcp \
   --env OUTLINE_URL=https://outline.mycompany.com \
   --env OUTLINE_API_KEY=ol_api_your_key
 ```
 
-This writes a `.mcp.json` file at your project root that anyone who clones the repo can use. Example shape:
+Both write a `.mcp.json` file at your project root that anyone who clones the repo can use. Example shape (standalone binary):
 
 ```json
 {
   "mcpServers": {
     "outline": {
-      "command": "outline",
-      "args": ["mcp"],
+      "command": "outline-mcp",
       "env": {
         "OUTLINE_URL": "https://outline.mycompany.com",
         "OUTLINE_API_KEY": "ol_api_your_key"
