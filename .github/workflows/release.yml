@@ -37,19 +37,35 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Build
+      - name: Build outline (CLI + MCP bundled)
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: "0"
         run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
           BINARY="outline-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
-          go build -ldflags="-s -w" -o "$BINARY" .
+          go build -ldflags="-s -w -X outline-cli/cmd.Version=${VERSION}" -o "$BINARY" .
           chmod +x "$BINARY"
 
-      - name: Upload release asset
+      - name: Build outline-mcp (standalone MCP server)
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: "0"
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          BINARY="outline-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+          go build -ldflags="-s -w -X main.Version=${VERSION}" -o "$BINARY" ./cmd/outline-mcp
+          chmod +x "$BINARY"
+
+      - name: Upload release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          BINARY="outline-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
-          gh release upload "${{ github.event.release.tag_name }}" "$BINARY" --clobber
+          TAG="${{ github.event.release.tag_name }}"
+          CLI_BINARY="outline-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+          MCP_BINARY="outline-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+          gh release upload "$TAG" "$CLI_BINARY" "$MCP_BINARY" --clobber

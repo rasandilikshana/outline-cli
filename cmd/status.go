@@ -27,6 +27,9 @@ var statusCmd = &cobra.Command{
 			fmt.Printf("API Key:  (not set)\n")
 			return fmt.Errorf("API key not configured")
 		}
+		if cfg.Source != "" {
+			fmt.Printf("Source:   %s\n", cfg.Source)
+		}
 
 		client, err := getClient()
 		if err != nil {

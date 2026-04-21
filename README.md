@@ -12,6 +12,7 @@
 <p align="center">
   <a href="#-install">Install</a> &bull;
   <a href="#-quick-start">Quick Start</a> &bull;
+  <a href="#-mcp-server">MCP Server</a> &bull;
   <a href="#-commands">Commands</a> &bull;
   <a href="#-cicd-pipeline-usage">CI/CD</a> &bull;
   <a href="#-interactive-tui">TUI</a> &bull;
@@ -31,15 +32,31 @@
 | 📋 | **Changelog** | Generate release notes from git history and push to Outline |
 | 🔍 | **Diff** | Compare local folder vs remote collection |
 | 💾 | **Backup** | Download all collections as local markdown |
+| 🤖 | **MCP Server** | Expose Outline to Claude Code and any MCP-capable client over stdio |
 
 ---
 
 ## 📦 Install
 
+Two binaries are published per release. Pick whichever fits your needs.
+
+| Binary | What you get | When to choose |
+|--------|--------------|----------------|
+| `outline` | Full CLI + TUI + MCP (`outline mcp` subcommand) | Daily interactive use, scripts, CI/CD, and optionally MCP |
+| `outline-mcp` | Standalone MCP server only (~20% smaller) | You only want to plug Outline into an MCP client like Claude Code |
+
+They coexist happily in `/usr/local/bin` — installing one does not affect the other.
+
 ### Quick Install (Linux / macOS)
 
+**Full CLI + MCP bundled:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh | sh
+```
+
+**MCP server only:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install-mcp.sh | sh
 ```
 
 > Auto-detects your OS and architecture, downloads the latest release binary, and installs to `/usr/local/bin`.
@@ -48,21 +65,26 @@ curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh 
 
 Pre-built binaries for every platform are available on the [Releases page](https://github.com/DiyRex/outline-cli/releases):
 
-| Platform | Binary |
-|----------|--------|
-| Linux (x86_64) | `outline-linux-amd64` |
-| Linux (ARM64) | `outline-linux-arm64` |
-| macOS (Intel) | `outline-darwin-amd64` |
-| macOS (Apple Silicon) | `outline-darwin-arm64` |
-| Windows (x86_64) | `outline-windows-amd64.exe` |
+| Platform | CLI Binary | MCP Binary |
+|----------|------------|------------|
+| Linux (x86_64) | `outline-linux-amd64` | `outline-mcp-linux-amd64` |
+| Linux (ARM64) | `outline-linux-arm64` | `outline-mcp-linux-arm64` |
+| macOS (Intel) | `outline-darwin-amd64` | `outline-mcp-darwin-amd64` |
+| macOS (Apple Silicon) | `outline-darwin-arm64` | `outline-mcp-darwin-arm64` |
+| Windows (x86_64) | `outline-windows-amd64.exe` | `outline-mcp-windows-amd64.exe` |
 
 ### Build from Source
 
 ```bash
 git clone https://github.com/DiyRex/outline-cli.git
 cd outline-cli
-make build    # produces ./outline binary
-make install  # copies to /usr/local/bin
+make build        # ./outline         (CLI + MCP bundled)
+make build-mcp    # ./outline-mcp     (MCP server only)
+make build-all    # both
+
+make install      # copies outline     to /usr/local/bin
+make install-mcp  # copies outline-mcp to /usr/local/bin
+make install-all  # both
 ```
 
 ---
@@ -85,6 +107,90 @@ outline pull "My Docs" ./output/
 # 4. Interactive mode
 outline
 ```
+
+---
+
+## 🤖 MCP Server
+
+`outline mcp` turns the CLI into a [Model Context Protocol](https://modelcontextprotocol.io) server over stdio. Plug it into Claude Code (or any MCP-capable client) and your LLM can search, read, comment on, and update documents in **your** Outline instance.
+
+### Tools exposed
+
+| Tool | Purpose |
+|------|---------|
+| `outline_search` | Full-text or title-only search with snippets |
+| `outline_list_documents` | List documents, optionally filtered by collection |
+| `outline_get_document` | Fetch full document body + metadata |
+| `outline_upsert_document` | Create or update by title match |
+| `outline_archive_document` | Soft-delete a document |
+| `outline_list_collections` | Enumerate collections |
+| `outline_get_collection_tree` | Nested document tree (by ID or name) |
+| `outline_list_comments` / `outline_create_comment` | Read and post comments |
+| `outline_list_revisions` | Revision history for a document |
+| `outline_pull_collection` / `outline_push_folder` | Bulk sync a collection with a local folder |
+
+### Per-project setup (recommended)
+
+Each project registers its own MCP server with its own Outline credentials — no secrets on shared disk, nothing about your team's Outline instance baked into the binary.
+
+**1. Install once (pick one):**
+```bash
+# MCP-only binary (recommended if you just want MCP)
+curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install-mcp.sh | sh
+
+# OR the full CLI, which also provides `outline mcp`
+curl -fsSL https://raw.githubusercontent.com/DiyRex/outline-cli/main/install.sh | sh
+```
+
+**2. Inside your project, register the MCP server with env-injected credentials:**
+
+With the standalone binary:
+```bash
+cd my-project
+claude mcp add outline --scope project outline-mcp \
+  --env OUTLINE_URL=https://outline.mycompany.com \
+  --env OUTLINE_API_KEY=ol_api_your_key
+```
+
+Or with the full CLI:
+```bash
+claude mcp add outline --scope project outline mcp \
+  --env OUTLINE_URL=https://outline.mycompany.com \
+  --env OUTLINE_API_KEY=ol_api_your_key
+```
+
+Both write a `.mcp.json` file at your project root that anyone who clones the repo can use. Example shape (standalone binary):
+
+```json
+{
+  "mcpServers": {
+    "outline": {
+      "command": "outline-mcp",
+      "env": {
+        "OUTLINE_URL": "https://outline.mycompany.com",
+        "OUTLINE_API_KEY": "ol_api_your_key"
+      }
+    }
+  }
+}
+```
+
+> Keep the API key out of git by committing only a `.mcp.json.example` and having each contributor run the `claude mcp add` command locally.
+
+**3. In Claude Code, run `/mcp` to confirm the server is connected**, then ask something like *"Search my Outline wiki for the deployment runbook"*.
+
+### Configuration sources
+
+`outline` resolves credentials in this order (highest wins):
+
+| Priority | Source | Use when |
+|---------|--------|----------|
+| 1 | `OUTLINE_URL` / `OUTLINE_API_KEY` env vars | MCP servers, CI/CD, Docker |
+| 2 | `./.outline/config.yaml` | Per-project, committable (URL only; keep key in env) |
+| 3 | `./outline.yaml` | Alternative project-root location |
+| 4 | `~/.outline-cli/config.yaml` | Personal default for a given machine |
+
+Run `outline config` or `outline status` to see which source is active.
 
 ---
 
@@ -316,12 +422,17 @@ Run `outline` without arguments to launch the TUI.
 ```bash
 outline config --url="https://your-instance.com"
 outline config --api-key="ol_api_your_key"
-outline config    # view current config
+outline config    # view current config and its source
 ```
 
-Config file: `~/.outline-cli/config.yaml`
+**Lookup order (highest precedence first):**
 
-Environment variables (`OUTLINE_URL`, `OUTLINE_API_KEY`) override the config file.
+1. `OUTLINE_URL` / `OUTLINE_API_KEY` environment variables
+2. `./.outline/config.yaml` (project-scoped, preferred for teams)
+3. `./outline.yaml` (alternative project-root location)
+4. `~/.outline-cli/config.yaml` (home directory, the default)
+
+Environment variables always override file-based config, making this tool suitable for MCP servers, CI/CD pipelines, and Docker containers where secrets should never touch disk.
 
 ### API Key Scopes
 

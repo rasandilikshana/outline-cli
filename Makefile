@@ -1,16 +1,37 @@
 BINARY_NAME=outline
-VERSION=0.1.0
+MCP_BINARY_NAME=outline-mcp
+VERSION=0.3.0
+INSTALL_DIR=/usr/local/bin
 
-.PHONY: build clean install run
+LDFLAGS_CLI=-ldflags="-X outline-cli/cmd.Version=$(VERSION)"
+LDFLAGS_MCP=-ldflags="-X main.Version=$(VERSION)"
+
+.PHONY: build build-mcp build-all clean install install-mcp install-all run fmt vet tidy test
+
+## Build targets
 
 build:
-	go build -ldflags="-X outline-cli/cmd.Version=$(VERSION)" -o $(BINARY_NAME) ./main.go
+	go build $(LDFLAGS_CLI) -o $(BINARY_NAME) ./main.go
 
-clean:
-	rm -f $(BINARY_NAME)
+build-mcp:
+	go build $(LDFLAGS_MCP) -o $(MCP_BINARY_NAME) ./cmd/outline-mcp
+
+build-all: build build-mcp
+
+## Install targets
 
 install: build
-	cp $(BINARY_NAME) /usr/local/bin/$(BINARY_NAME)
+	cp $(BINARY_NAME) $(INSTALL_DIR)/$(BINARY_NAME)
+
+install-mcp: build-mcp
+	cp $(MCP_BINARY_NAME) $(INSTALL_DIR)/$(MCP_BINARY_NAME)
+
+install-all: install install-mcp
+
+## Housekeeping
+
+clean:
+	rm -f $(BINARY_NAME) $(MCP_BINARY_NAME)
 
 run: build
 	./$(BINARY_NAME)
@@ -23,3 +44,6 @@ vet:
 
 tidy:
 	go mod tidy
+
+test:
+	go test ./...
