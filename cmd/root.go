@@ -88,6 +88,7 @@ func init() {
 	rootCmd.AddCommand(attachmentsCmd)
 	rootCmd.AddCommand(diffCmd)
 	rootCmd.AddCommand(backupCmd)
+	rootCmd.AddCommand(mcpCmd)
 }
 
 func getClientFromConfig(cfg *config.Config) *api.Client {
