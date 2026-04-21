@@ -22,7 +22,12 @@ var configCmd = &cobra.Command{
 		apiKey, _ := cmd.Flags().GetString("api-key")
 
 		if url == "" && apiKey == "" {
-			fmt.Printf("Config file: %s\n", config.ConfigPath())
+			source := cfg.Source
+			if source == "" {
+				source = "(not loaded — no config file or env vars found)"
+			}
+			fmt.Printf("Source:      %s\n", source)
+			fmt.Printf("Home config: %s\n", config.ConfigPath())
 			fmt.Printf("URL:         %s\n", cfg.URL)
 			if cfg.APIKey != "" {
 				fmt.Printf("API Key:     %s...%s\n", cfg.APIKey[:10], cfg.APIKey[len(cfg.APIKey)-4:])
